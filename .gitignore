@@ -9,6 +9,9 @@
 
 # testing
 /coverage
+/.tmp
+/test-results
+/playwright-report
 
 # production
 /build

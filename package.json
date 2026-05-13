@@ -45,6 +45,10 @@
     "zip": "zx src/scripts/archive.mjs",
     "build+zip": "cross-env CI=true pnpm build && pnpm zip",
     "test": "react-app-rewired test",
+    "test:extension": "playwright test tests/extension.spec.js",
+    "dev:chrome": "pnpm build:chrome && pnpm test:extension",
+    "dev:chrome:open": "node tests/dev-extension-runner.js",
+    "watch:chrome": "chokidar \"src/**/*\" \"public/**/*\" -c \"pnpm dev:chrome\" --initial --debounce 1500",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -78,7 +82,10 @@
     "@babel/node": "^7.22.19",
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@babel/preset-env": "^7.22.20",
+    "@playwright/test": "^1.60.0",
     "bestzip": "^2.2.1",
+    "chokidar": "^3.6.0",
+    "chokidar-cli": "^3.0.0",
     "cross-env": "^7.0.3",
     "dotenv": "^17.2.1",
     "find-up": "^7.0.0",
