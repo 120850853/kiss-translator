@@ -155,13 +155,15 @@ const RULES_MAP = {
     autoScan: `false`,
   },
   "twitter.com, https://x.com": {
-    selector: `[data-testid='tweetText'], [data-testid='twitter-article-title'], [data-testid='UserDescription'], .public-DraftStyleDefault-block, span.text-body, div.css-175oi2r.r-3pj75a div.css-175oi2r>span, div.css-175oi2r.r-3pj75a li>span, div.r-1s2bzr4>div.r-16dba41, div.r-16y2uox>div.r-1jeg54m`,
+    selector: `[data-testid='tweetText'], [data-testid='twitter-article-title'], [data-testid='UserDescription'], [role='link'] [data-testid='article-cover-image'] ~ div div[dir='auto'], .public-DraftStyleDefault-block, span.text-body, div.css-175oi2r.r-3pj75a div.css-175oi2r>span, div.css-175oi2r.r-3pj75a li>span, div.r-1s2bzr4>div.r-16dba41, div.r-16y2uox>div.r-1jeg54m`,
     keepSelector: `img, svg, a, span:has(a), div:has(a)`,
     ignoreSelector: `[data-testid='videoPlayer'], [data-testid^='tweetTextarea']`,
     autoScan: `false`,
     splitParagraph: OPT_SPLIT_PARAGRAPH_TEXTLENGTH,
     splitLength: 10000,
-    selectStyle: `-webkit-line-clamp: unset; max-height: none; height: auto;`,
+    selectStyle: `-webkit-line-clamp: unset; max-height: none; height: auto; overflow: visible;`,
+    parentStyle: `-webkit-line-clamp: unset; max-height: none; height: auto; overflow: visible;`,
+    grandStyle: `-webkit-line-clamp: unset; max-height: none; height: auto; overflow: visible;`,
   },
   "www.youtube.com/live_chat": {
     rootsSelector: `div#items`,
