@@ -46,7 +46,8 @@ export const OPT_HIGHLIGHT_WORDS_ALL = [
 
 export const DEFAULT_SELECTOR =
   "h1, h2, h3, h4, h5, h6, li, p, dd, blockquote, figcaption, label, legend";
-export const DEFAULT_IGNORE_SELECTOR = "button, footer, pre, mark, nav, svg, img[src*='.svg'], [class*='logo'] svg, [id*='logo'] svg";
+export const DEFAULT_IGNORE_SELECTOR =
+  "button, footer, pre, mark, nav, svg, img[src*='.svg'], [class*='logo'] svg, [id*='logo'] svg";
 export const DEFAULT_KEEP_SELECTOR = `code, cite, math, .math, a:has(code)`;
 export const DEFAULT_RULE = {
   pattern: "", // 匹配网址
@@ -158,6 +159,8 @@ const RULES_MAP = {
     keepSelector: `img, svg, a, span:has(a), div:has(a)`,
     ignoreSelector: `[data-testid='videoPlayer'], [data-testid^='tweetTextarea']`,
     autoScan: `false`,
+    splitParagraph: OPT_SPLIT_PARAGRAPH_TEXTLENGTH,
+    splitLength: 10000,
     selectStyle: `-webkit-line-clamp: unset; max-height: none; height: auto;`,
   },
   "www.youtube.com/live_chat": {

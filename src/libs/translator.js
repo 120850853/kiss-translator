@@ -996,13 +996,16 @@ export class Translator {
       }
     }
 
+    const groupRoot = this.#resolveTranslationGroupRoot(node);
+
     // 切分长段落
     if (splitParagraph !== OPT_SPLIT_PARAGRAPH_DISABLE) {
-      this.#splitTextNodesBySentence(node, splitParagraph, splitLength);
+      this.#splitTextNodesBySentence(groupRoot, splitParagraph, splitLength);
     }
 
     let nodeGroup = [];
-    [...node.childNodes].forEach((child) => {
+    const forceLeadingBreak = groupRoot !== node;
+    [...groupRoot.childNodes].forEach((child) => {
       const shouldBreak = this.#shouldBreak(child);
       const shouldGroup =
         child.nodeType === Node.ELEMENT_NODE ||
@@ -1010,13 +1013,15 @@ export class Translator {
       if (!shouldBreak && shouldGroup) {
         nodeGroup.push(child);
       } else if (shouldBreak && nodeGroup.length) {
-        this.#translateNodeGroup(nodeGroup, node, deLang);
+        this.#translateNodeGroup(nodeGroup, node, deLang, {
+          forceLeadingBreak,
+        });
         nodeGroup = [];
       }
     });
 
     if (nodeGroup.length) {
-      this.#translateNodeGroup(nodeGroup, node, deLang);
+      this.#translateNodeGroup(nodeGroup, node, deLang, { forceLeadingBreak });
     }
   }
 
@@ -1092,7 +1097,46 @@ export class Translator {
 
   // 切分文本段落
   #splitTextNodesBySentence(parentNode, splitParagraph, splitLength) {
+    const paragraphBreakRegex = /((?:\r?\n[^\S\r\n]*){2,})/;
     const sentenceEndRegexForSplit = /[。！？]+|[.?!]+(?=\s+|$)/g;
+
+    const createBreakNode = (breakText = "") => {
+      const br = document.createElement("br");
+      br.className = Translator.KISS_CLASS.br;
+      if (breakText) {
+        br.dataset.kissTranslatorBreakText = breakText;
+      }
+      this.#skipMoNodes.add(br);
+      return br;
+    };
+
+    [...parentNode.childNodes].forEach((node) => {
+      if (
+        node.nodeType !== Node.TEXT_NODE ||
+        node.textContent.trim() === "" ||
+        !paragraphBreakRegex.test(node.textContent)
+      ) {
+        return;
+      }
+
+      const newNodes = [];
+      node.textContent.split(paragraphBreakRegex).forEach((part) => {
+        if (!part) return;
+
+        if (paragraphBreakRegex.test(part)) {
+          newNodes.push(createBreakNode(part), createBreakNode());
+          return;
+        }
+
+        const textNode = document.createTextNode(part);
+        this.#skipMoNodes.add(textNode);
+        newNodes.push(textNode);
+      });
+
+      if (newNodes.length > 1) {
+        node.replaceWith(...newNodes);
+      }
+    });
 
     [...parentNode.childNodes].forEach((node) => {
       if (node.nodeType !== Node.TEXT_NODE || node.textContent.trim() === "") {
@@ -1161,6 +1205,34 @@ export class Translator {
     });
   }
 
+  #resolveTranslationGroupRoot(node) {
+    if (!Translator.isElement(node)) {
+      return node;
+    }
+
+    const meaningfulChildren = [...node.childNodes].filter(
+      (child) =>
+        child.nodeType !== Node.TEXT_NODE || child.textContent.trim() !== ""
+    );
+
+    if (meaningfulChildren.length !== 1) {
+      return node;
+    }
+
+    const [child] = meaningfulChildren;
+    if (
+      child.nodeType !== Node.ELEMENT_NODE ||
+      Translator.isBlockNode(child) ||
+      child.matches?.(this.#rule.keepSelector) ||
+      child.matches?.(this.#ignoreSelector) ||
+      !/\n\s*\n/.test(child.textContent)
+    ) {
+      return node;
+    }
+
+    return child;
+  }
+
   // 清除高亮
   #removeHighlights(parentNode) {
     if (!parentNode) return;
@@ -1183,7 +1255,17 @@ export class Translator {
 
     parentNode
       .querySelectorAll(`.${Translator.KISS_CLASS.br}`)
-      .forEach((br) => br.remove());
+      .forEach((br) => {
+        const breakText = br.dataset?.kissTranslatorBreakText;
+        if (breakText) {
+          const textNode = document.createTextNode(breakText);
+          this.#skipMoNodes.add(textNode);
+          br.replaceWith(textNode);
+          return;
+        }
+
+        br.remove();
+      });
 
     parentNode.normalize();
   }
@@ -1251,7 +1333,12 @@ export class Translator {
   }
 
   // 翻译内联节点
-  async #translateNodeGroup(nodes, hostNode, deLang) {
+  async #translateNodeGroup(
+    nodes,
+    hostNode,
+    deLang,
+    { forceLeadingBreak = false } = {}
+  ) {
     const {
       transTag,
       textStyle,
@@ -1273,6 +1360,7 @@ export class Translator {
     } = this.#setting;
     const parentNode = hostNode.parentElement;
     const hideOrigin = transOnly === "true";
+    let wrapper;
 
     try {
       const [processedString, placeholderMap] = this.#serializeForTranslation(
@@ -1281,10 +1369,15 @@ export class Translator {
       );
       if (this.#isInvalidText(processedString)) return;
 
-      const wrapper = document.createElement(this.#translationTagName);
+      wrapper = document.createElement(this.#translationTagName);
       wrapper.className = `${Translator.KISS_CLASS.warpper} notranslate`;
+      this.#translationNodes.set(wrapper, {
+        nodes,
+        hostNode,
+        isHide: false,
+      });
 
-      if (processedString.length > newlineLength) {
+      if (forceLeadingBreak || processedString.length > newlineLength) {
         const br = document.createElement("br");
         br.hidden = hideOrigin;
         wrapper.appendChild(br);
@@ -1326,6 +1419,7 @@ export class Translator {
 
       this.#translationNodes.set(wrapper, {
         nodes,
+        hostNode,
         isHide: hideOrigin,
       });
       if (hideOrigin) {
@@ -1379,11 +1473,13 @@ export class Translator {
 
       // 失败重试按钮
       try {
-        const wrapper = hostNode.querySelector(
-          `:scope > .${Translator.KISS_CLASS.warpper}:last-of-type`
-        );
-        if (wrapper) {
-          const inner = wrapper.querySelector(
+        const retryWrapper =
+          wrapper?.isConnected &&
+          wrapper.classList.contains(Translator.KISS_CLASS.warpper)
+            ? wrapper
+            : this.#findTranslationWrappers(hostNode).at(-1);
+        if (retryWrapper) {
+          const inner = retryWrapper.querySelector(
             `.${Translator.KISS_CLASS.inner}`
           );
           if (inner) {
@@ -1393,9 +1489,11 @@ export class Translator {
             retryIcon.addEventListener("click", (e) => {
               e.stopPropagation();
               e.preventDefault();
-              wrapper.remove();
+              retryWrapper.remove();
               this.#processedNodes.delete(hostNode);
-              this.#translateNodeGroup(nodes, hostNode, deLang);
+              this.#translateNodeGroup(nodes, hostNode, deLang, {
+                forceLeadingBreak,
+              });
             });
             inner.appendChild(retryIcon);
           }
@@ -1620,8 +1718,14 @@ export class Translator {
 
   // 查找指定节点下所有译文节点
   #findTranslationWrappers(parentNode) {
-    return parentNode.querySelectorAll(
-      `:scope > .${Translator.KISS_CLASS.warpper}`
+    const wrappers = parentNode.querySelectorAll(
+      `.${Translator.KISS_CLASS.warpper}`
+    );
+
+    return [...wrappers].filter(
+      (el) =>
+        el.parentElement === parentNode ||
+        this.#translationNodes.get(el)?.hostNode === parentNode
     );
   }
 
@@ -1646,11 +1750,12 @@ export class Translator {
 
   // 清理译文
   #removeTranslationElement(el) {
+    const meta = this.#translationNodes.get(el) || {};
     const parentElement = el.parentElement;
-    this.#processedNodes.delete(parentElement);
+    this.#processedNodes.delete(meta.hostNode || parentElement);
 
     // 如果是仅显示译文模式，先恢复原文
-    const { nodes, isHide } = this.#translationNodes.get(el) || {};
+    const { nodes, isHide } = meta;
     if (isHide) {
       this.#restoreOriginal(el, nodes);
     }
@@ -1687,17 +1792,18 @@ export class Translator {
   #toggleTranslationOnly(node, transOnly) {
     this.#findTranslationWrappers(node).forEach((el) => {
       const br = el.querySelector(":scope > br");
-      const { nodes } = this.#translationNodes.get(el) || {};
+      const meta = this.#translationNodes.get(el) || {};
+      const { nodes } = meta;
       if (transOnly === "true") {
         // 双语变为仅译文
         if (br) br.hidden = true;
         this.#removeNodes(nodes);
-        this.#translationNodes.set(el, { nodes, isHide: true });
+        this.#translationNodes.set(el, { ...meta, nodes, isHide: true });
       } else {
         // 仅译文变为双语
         if (br) br.hidden = false;
         this.#restoreOriginal(el, nodes);
-        this.#translationNodes.set(el, { nodes, isHide: false });
+        this.#translationNodes.set(el, { ...meta, nodes, isHide: false });
       }
     });
   }
