@@ -910,6 +910,56 @@ export class Translator {
         this.#startObserveNode(node);
       }
     });
+
+    this.#collectXArticleCardTargets(rootNode).forEach((node) => {
+      this.#startObserveNode(node);
+    });
+  }
+
+  #isXHost() {
+    const hostname = window.location.hostname;
+    return (
+      hostname === "x.com" ||
+      hostname.endsWith(".x.com") ||
+      hostname === "twitter.com" ||
+      hostname.endsWith(".twitter.com")
+    );
+  }
+
+  #collectXArticleCardTargets(rootNode) {
+    if (!this.#isXHost() || !Translator.isElementOrFragment(rootNode)) {
+      return [];
+    }
+
+    const targets = new Set();
+    const tweetSelector = `[data-testid="tweet"]`;
+    const coverSelector = `[data-testid="article-cover-image"]`;
+    const textBlockSelector = `:scope > div[dir="auto"]`;
+
+    const addArticleTargets = (tweet) => {
+      if (!tweet.matches?.(tweetSelector)) {
+        return;
+      }
+
+      const cover = tweet.querySelector(coverSelector);
+      if (!cover) return;
+
+      const textContainer = cover.nextElementSibling;
+      if (!textContainer) return;
+
+      textContainer.querySelectorAll(textBlockSelector).forEach((node) => {
+        if (!node.closest?.(this.#ignoreSelector)) {
+          targets.add(node);
+        }
+      });
+    };
+
+    if (rootNode.matches?.(tweetSelector)) {
+      addArticleTargets(rootNode);
+    }
+
+    rootNode.querySelectorAll(tweetSelector).forEach(addArticleTargets);
+    return [...targets];
   }
 
   // 寻找需要被监控的文本节点
@@ -1378,9 +1428,11 @@ export class Translator {
       });
 
       if (forceLeadingBreak || processedString.length > newlineLength) {
-        const br = document.createElement("br");
-        br.hidden = hideOrigin;
-        wrapper.appendChild(br);
+        for (let i = 0; i < 2; i += 1) {
+          const br = document.createElement("br");
+          br.hidden = hideOrigin;
+          wrapper.appendChild(br);
+        }
       }
 
       const inner = document.createElement(transTag);

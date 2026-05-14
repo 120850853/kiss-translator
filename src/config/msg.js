@@ -31,6 +31,7 @@ export const MSG_BUILTINAI_TRANSLATE = "builtinai_translte";
 export const MSG_SET_LOGLEVEL = "set_loglevel";
 export const MSG_CLEAR_CACHES = "clear_caches";
 export const MSG_OPEN_SEPARATE_WINDOW = "open_separate_window";
+export const MSG_DEV_EXTERNAL_RELOAD = "dev_external_reload";
 export const PORT_STREAM_FETCH = "kiss_stream_fetch";
 export const MSG_UPDATE_ICON = "update_icon";
 

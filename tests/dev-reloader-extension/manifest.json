@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "KISS Translator Dev Reloader",
+  "version": "0.1.0",
+  "description": "Development-only helper that reloads the local KISS Translator extension after builds.",
+  "permissions": ["management", "storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "KISS Translator Dev Reloader"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' ws://127.0.0.1:17787 http://127.0.0.1:17787;"
+  }
+}
