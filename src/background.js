@@ -24,7 +24,6 @@ import {
   MSG_SET_LOGLEVEL,
   MSG_CLEAR_CACHES,
   MSG_OPEN_SEPARATE_WINDOW,
-  MSG_DEV_EXTERNAL_RELOAD,
   STOKEY_SEPARATE_WINDOW,
   PORT_STREAM_FETCH,
   MSG_UPDATE_ICON,
@@ -460,30 +459,6 @@ browser.runtime.onMessage.addListener(async ({ action, args }, sender) => {
 
   return handler(args, sender);
 });
-
-if (
-  process.env.REACT_APP_DEV_RELOAD === "true" &&
-  browser.runtime.onMessageExternal
-) {
-  browser.runtime.onMessageExternal.addListener((message, sender) => {
-    if (message?.action !== MSG_DEV_EXTERNAL_RELOAD) {
-      return;
-    }
-
-    const response = {
-      ok: true,
-      action: MSG_DEV_EXTERNAL_RELOAD,
-      version: browser.runtime.getManifest().version,
-      senderId: sender?.id,
-    };
-
-    setTimeout(() => {
-      browser.runtime.reload();
-    }, 0);
-
-    return response;
-  });
-}
 
 /**
  * 监听快捷键

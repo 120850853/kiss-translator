@@ -47,10 +47,6 @@ try {
 
     process.env.BUILD_PATH = `./${targetDir}`;
     process.env.REACT_APP_CLIENT = clientEnv;
-    process.env.REACT_APP_DEV_RELOAD =
-      target === "chrome" && process.env.REACT_APP_DEV_RELOAD === "true"
-        ? "true"
-        : "false";
     process.env.FORCE_COLOR = "1";
 
     console.log(chalk.gray(`Running react-app-rewired build...`));
